@@ -186,8 +186,9 @@ struct GroupChatView: View {
     @State private var messageText = ""
     @State private var showGroupInfo = false
 
-    // Pull the active phone number setup directly out from your local AppStorage cache
+    // Pull the active setup directly out from your local AppStorage cache
     @AppStorage("profilePhone") private var userPhone = ""
+    @AppStorage("profileUsername") private var userUsername = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -376,7 +377,15 @@ struct GroupChatView: View {
 
         let finalInitials = initials.isEmpty ? "U\(message.sender_id)" : String(initials)
         
-        let isMe = (message.sender?.mobile_number == userPhone)
+        let cleanSenderPhone = message.sender?.mobile_number.components(separatedBy: CharacterSet.decimalDigits.inverted).joined() ?? ""
+        let cleanUserPhone = userPhone.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+        
+        // Handle cases where one phone number includes a country code and the other does not
+        let phoneMatches = !cleanSenderPhone.isEmpty && !cleanUserPhone.isEmpty && (cleanSenderPhone.hasSuffix(cleanUserPhone) || cleanUserPhone.hasSuffix(cleanSenderPhone))
+        
+        let usernameMatches = !userUsername.isEmpty && (message.sender?.username == userUsername)
+        
+        let isMe = phoneMatches || usernameMatches
         
         return (name, finalInitials, color, isMe)
     }
