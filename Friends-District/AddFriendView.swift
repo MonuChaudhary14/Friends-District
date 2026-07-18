@@ -108,7 +108,7 @@ struct AddFriendView: View {
         .task {
             await fetchRequests()
         }
-        .onChange(of: phoneNumber) { _ in
+        .onChange(of: phoneNumber) { oldValue, newValue in
             // Reset status when user types a new number
             requestStatus = .idle
         }
