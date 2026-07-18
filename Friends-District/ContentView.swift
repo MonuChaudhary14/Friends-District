@@ -98,11 +98,13 @@ struct ContentView: View {
     
     private func fetchSpotlightEvents() async {
         guard let url = URL(string: "https://district.monu14.me/api/v1/events/spotlight") else { return }
+        var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         
         isLoadingSpotlight = true
         
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let (data, _) = try await URLSession.shared.data(for: request)
             let decodedItems = try JSONDecoder().decode([SpotlightItem].self, from: data)
             
             await MainActor.run {
@@ -137,8 +139,11 @@ struct ContentView: View {
     
     private func fetchSectionEvents(type: String) async -> [SpotlightItem] {
         guard let url = URL(string: "https://district.monu14.me/api/v1/events?type=\(type)") else { return [] }
+        var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let (data, _) = try await URLSession.shared.data(for: request)
             return try JSONDecoder().decode([SpotlightItem].self, from: data)
         } catch {
             print("Failed to fetch \(type) events: \(error)")
