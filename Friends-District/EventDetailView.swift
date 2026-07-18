@@ -464,3 +464,89 @@ struct InfoCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
+
+// MARK: - Models & Subviews
+
+struct RoomMember: Codable, Identifiable, Hashable {
+    let id: Int
+    let name: String
+    let mobile_number: String
+}
+
+struct GroupBookingSheet: View {
+    let members: [RoomMember]
+    @Binding var selectedMembers: Set<String>
+    let onConfirm: () -> Void
+    
+    var body: some View {
+        ZStack {
+            Color(red: 0.12, green: 0.12, blue: 0.14).ignoresSafeArea()
+            
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Book For Group")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 32)
+                
+                if members.isEmpty {
+                    ProgressView().tint(.white)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            ForEach(members) { member in
+                                let isSelected = selectedMembers.contains(member.mobile_number)
+                                
+                                Button {
+                                    if isSelected {
+                                        selectedMembers.remove(member.mobile_number)
+                                    } else {
+                                        selectedMembers.insert(member.mobile_number)
+                                    }
+                                } label: {
+                                    HStack(spacing: 16) {
+                                        ZStack {
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                                .frame(width: 24, height: 24)
+                                            if isSelected {
+                                                Circle()
+                                                    .fill(Color(red: 0.52, green: 0.22, blue: 0.95))
+                                                    .frame(width: 16, height: 16)
+                                            }
+                                        }
+                                        
+                                        Text(member.name)
+                                            .font(.system(size: 18, weight: .medium))
+                                            .foregroundStyle(.white)
+                                        
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 8)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    
+                    Button {
+                        onConfirm()
+                    } label: {
+                        Text("Confirm Booking (\(selectedMembers.count))")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(selectedMembers.isEmpty ? Color.white.opacity(0.2) : Color(red: 0.52, green: 0.22, blue: 0.95))
+                            .clipShape(Capsule())
+                    }
+                    .disabled(selectedMembers.isEmpty)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                }
+            }
+        }
+    }
+}
