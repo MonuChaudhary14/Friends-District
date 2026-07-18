@@ -102,11 +102,19 @@ struct GroupsView: View {
                         } else {
                             VStack(spacing: 0) {
                                 ForEach(pendingInvites) { room in
-                                    PendingInviteRow(room: room) {
-                                        Task {
-                                            await acceptInvite(for: room)
+                                    PendingInviteRow(
+                                        room: room,
+                                        onAccept: {
+                                            Task {
+                                                await acceptInvite(for: room)
+                                            }
+                                        },
+                                        onReject: {
+                                            Task {
+                                                await rejectInvite(for: room)
+                                            }
                                         }
-                                    }
+                                    )
                                     
                                     if room.id != pendingInvites.last?.id {
                                         Divider()
@@ -274,24 +282,50 @@ struct GroupsView: View {
     
     /// Hitting the member parameters details to process joining validation rules
     private func acceptInvite(for room: Room) async {
-        guard let url = URL(string: "https://district.monu14.me/api/v1/rooms/\(room.id)/members") else { return }
+        guard let url = URL(string: "https://district.monu14.me/api/v1/rooms/\(room.id)/accept") else { return }
+        
+        let payload = ["user_phone": storedPhone]
         
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         do {
+            request.httpBody = try JSONEncoder().encode(payload)
             let (_, response) = try await URLSession.shared.data(for: request)
             
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                print("✅ Successfully accepted invite and initialized members map data for room \(room.id)")
-                // Refresh views immediately to transition out of pending UI cards
+                print("✅ Successfully accepted invite for room \(room.id)")
                 await fetchAllData()
             } else {
-                print("⚠️ Server rejected query action sequence. Status Code: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+                print("⚠️ Failed to accept invite. Status Code: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
             }
         } catch {
-            print("❌ Failed processing accept invite API transaction: \(error)")
+            print("❌ Error accepting invite: \(error)")
+        }
+    }
+    
+    private func rejectInvite(for room: Room) async {
+        guard let url = URL(string: "https://district.monu14.me/api/v1/rooms/\(room.id)/reject") else { return }
+        
+        let payload = ["user_phone": storedPhone]
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        do {
+            request.httpBody = try JSONEncoder().encode(payload)
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                print("✅ Successfully rejected invite for room \(room.id)")
+                await fetchAllData()
+            } else {
+                print("⚠️ Failed to reject invite. Status Code: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+            }
+        } catch {
+            print("❌ Error rejecting invite: \(error)")
         }
     }
     
@@ -394,6 +428,7 @@ struct GroupRow: View {
 struct PendingInviteRow: View {
     let room: Room
     let onAccept: () -> Void
+    let onReject: () -> Void
     
     var body: some View {
         HStack(spacing: 16) {
@@ -422,18 +457,31 @@ struct PendingInviteRow: View {
             
             Spacer()
             
-            Button {
-                onAccept()
-            } label: {
-                Text("Accept")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.15))
-                    .clipShape(Capsule())
+            HStack(spacing: 8) {
+                Button {
+                    onReject()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(10)
+                        .background(Color.white.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    onAccept()
+                } label: {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(10)
+                        .background(Color(red: 0.52, green: 0.22, blue: 0.95))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 18)
