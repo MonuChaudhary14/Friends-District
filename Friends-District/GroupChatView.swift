@@ -333,7 +333,7 @@ struct GroupChatView: View {
                 priceMin: nil,
                 priceMax: nil
             )
-            EventDetailView(item: spotlightItem)
+            EventDetailView(item: spotlightItem, roomId: room.id)
         }
         .task {
             // 1. Fetch historical data traces
