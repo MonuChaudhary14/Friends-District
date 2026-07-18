@@ -294,3 +294,7 @@ struct SuggestedPersonRow: View {
         }
     }
 }
+
+#Preview {
+    AddFriendView()
+}

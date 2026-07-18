@@ -19,6 +19,7 @@ struct ProfileView: View {
     @AppStorage("profileBirthday") private var storedBirthday = ""
     @AppStorage("profileImageData") private var storedImageData: Data = Data()
     @State private var showAddFriend = false
+    @State private var showFriendList = false
     
     // MARK: - Dynamic Progress Calculation
     private var stepsDone: Int {
@@ -68,7 +69,7 @@ struct ProfileView: View {
                                 .padding(.horizontal, 20)
                             
                             Button {
-                                // Action for Friend List
+                                showFriendList = true
                             } label: {
                                 actionRowContent(icon: "list.bullet", isCustomImage: false, title: "Friend List")
                             }
@@ -126,6 +127,9 @@ struct ProfileView: View {
             .navigationBarBackButtonHidden(true)
             .navigationDestination(isPresented: $showEditProfile) {
                 EditProfileView()
+            }
+            .navigationDestination(isPresented: $showFriendList) {
+                FriendListView()
             }
         }
     }
