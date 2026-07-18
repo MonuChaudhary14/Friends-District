@@ -111,7 +111,7 @@ struct EventDetailView: View {
                         Spacer().frame(height: 120) // padding for bottom bar
                     }
                     .padding(.horizontal, 20)
-                    .offset(y: -40)
+                    .padding(.top, 16)
                 }
             }
             .ignoresSafeArea(edges: .top)
