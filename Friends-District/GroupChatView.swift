@@ -362,11 +362,6 @@ struct GroupChatView: View {
             viewModel.disconnectWebSocket()
         }
         .translationPresentation(isPresented: $showTranslation, text: textToTranslate)
-        .sheet(isPresented: $showSummarySheet) {
-            AppleIntelligenceSummaryView()
-                .presentationDetents([.height(260)])
-                .presentationDragIndicator(.visible)
-        }
     }
 
     private var topNavigationBar: some View {
@@ -436,6 +431,11 @@ struct GroupChatView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .sheet(isPresented: $showSummarySheet) {
+            AppleIntelligenceSummaryView()
+                .presentationDetents([.height(260)])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private func userMessageRow(initials: String, name: String, avatarColor: Color, isMe: Bool, content: some View) -> some View {
