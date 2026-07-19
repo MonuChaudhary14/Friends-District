@@ -1,16 +1,35 @@
 import SwiftUI
 
-struct CategoryListView: View {
-    let category: Category
-    @State private var items: [SpotlightItem] = []
+struct BookingResponse: Codable, Identifiable {
+    let id: Int
+    let external_event_id: String
+    let external_event_type: String
+    let quantity: Int
+    let total_price: Double
+    let status: String
+    let start_time: String?
+    let end_time: String?
+    let user: UserResponse?
+    let booked_for: UserResponse?
+}
+
+struct UserResponse: Codable {
+    let id: Int
+    let name: String
+    let username: String
+}
+
+struct BookingsListView: View {
+    @State private var bookings: [BookingResponse] = []
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
     
+    @AppStorage("username") private var storedUsername: String = ""
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
-            // Custom Navigation Bar
+            // Navigation Bar
             HStack {
                 Button {
                     dismiss()
@@ -20,13 +39,12 @@ struct CategoryListView: View {
                 
                 Spacer()
                 
-                Text(category.title)
+                Text("My Bookings")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(.white)
                 
                 Spacer()
                 
-                // Placeholder to balance the back button
                 CircleIconButton(systemName: "arrow.left")
                     .opacity(0)
             }
@@ -40,7 +58,7 @@ struct CategoryListView: View {
                     ProgressView()
                         .tint(Color(red: 0.37, green: 0.42, blue: 0.82))
                         .scaleEffect(1.5)
-                    Text("Discovering \(category.title.lowercased())...")
+                    Text("Loading bookings...")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.3))
                 }
@@ -48,56 +66,42 @@ struct CategoryListView: View {
             } else if let errorMessage = errorMessage {
                 Spacer()
                 VStack(spacing: 10) {
-                    Image(systemName: "wifi.slash")
+                    Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 28))
                         .foregroundStyle(.red.opacity(0.6))
                     Text(errorMessage)
-                        .foregroundStyle(.red.opacity(0.8))
                         .font(.system(size: 15, weight: .medium))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
+                        .foregroundStyle(.red.opacity(0.8))
                 }
                 Spacer()
-            } else if items.isEmpty {
+            } else if bookings.isEmpty {
                 Spacer()
                 VStack(spacing: 14) {
                     ZStack {
                         Circle()
                             .fill(Color.white.opacity(0.04))
                             .frame(width: 80, height: 80)
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 30))
+                        Image(systemName: "ticket")
+                            .font(.system(size: 32))
                             .foregroundStyle(Color(red: 0.37, green: 0.42, blue: 0.82).opacity(0.5))
                     }
-                    Text("No \(category.title.lowercased()) found")
+                    Text("No bookings yet")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.6))
-                    Text("Check back later for updates")
+                    Text("Your tickets will appear here")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.3))
                 }
                 Spacer()
             } else {
                 ScrollView(showsIndicators: false) {
-                    HStack {
-                        Text("\(items.count) results")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.35))
-                        Spacer()
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 8)
-                    
                     LazyVStack(spacing: 16) {
-                        ForEach(items) { item in
-                            NavigationLink(destination: EventDetailView(item: item)) {
-                                CategoryListItemCard(item: item)
-                            }
-                            .buttonStyle(.plain)
+                        ForEach(bookings) { booking in
+                            BookingCard(booking: booking, currentUsername: storedUsername)
                         }
                     }
                     .padding(.horizontal, 18)
-                    .padding(.top, 4)
+                    .padding(.top, 10)
                     .padding(.bottom, 30)
                 }
             }
@@ -114,31 +118,31 @@ struct CategoryListView: View {
         )
         .navigationBarBackButtonHidden(true)
         .task {
-            await fetchItems()
+            await fetchBookings()
         }
     }
     
-    private func fetchItems() async {
-        guard let url = URL(string: "https://district.monu14.me/api/v1/events?type=\(category.apiType)") else { return }
+    private func fetchBookings() async {
+        guard let encodedUsername = storedUsername.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://district.monu14.me/api/v1/bookings?username=\(encodedUsername)") else { return }
         
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
                 await MainActor.run {
-                    self.errorMessage = "Failed to load events. Please try again."
+                    self.errorMessage = "Failed to load bookings."
                     self.isLoading = false
                 }
                 return
             }
             
-            let decodedItems = try JSONDecoder().decode([SpotlightItem].self, from: data)
+            let decodedBookings = try JSONDecoder().decode([BookingResponse].self, from: data)
             
             await MainActor.run {
-                self.items = decodedItems
+                self.bookings = decodedBookings
                 self.isLoading = false
             }
         } catch {
@@ -150,77 +154,73 @@ struct CategoryListView: View {
     }
 }
 
-struct CategoryListItemCard: View {
-    let item: SpotlightItem
+struct BookingCard: View {
+    let booking: BookingResponse
+    let currentUsername: String
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Image
-            AsyncImage(url: URL(string: item.imageUrl)) { phase in
-                switch phase {
-                case .empty:
-                    Rectangle()
-                        .fill(Color.white.opacity(0.1))
-                        .overlay(ProgressView().tint(.white))
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .failure:
-                    Rectangle()
-                        .fill(Color.white.opacity(0.1))
-                        .overlay(
-                            Image(systemName: "photo")
-                                .foregroundStyle(.white.opacity(0.3))
-                        )
-                @unknown default:
-                    EmptyView()
-                }
-            }
-            .frame(width: 100, height: 100)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            
-            // Details
-            VStack(alignment: .leading, spacing: 6) {
-                Text(item.title)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(booking.external_event_type.capitalized)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color(red: 0.37, green: 0.42, blue: 0.82))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color(red: 0.37, green: 0.42, blue: 0.82).opacity(0.12))
+                    .clipShape(Capsule())
                 
-                if let type = item.type {
-                    Text(type.capitalized)
+                Spacer()
+                
+                Text(booking.status)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.green)
+            }
+            
+            Text("Event ID: \(booking.external_event_id)")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+            
+            if let startTime = booking.start_time, let endTime = booking.end_time {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .foregroundStyle(.white.opacity(0.6))
+                    Text("\(startTime) - \(endTime)")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color(red: 0.37, green: 0.42, blue: 0.82))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color(red: 0.37, green: 0.42, blue: 0.82).opacity(0.12))
-                        .clipShape(Capsule())
-                }
-                
-                Spacer(minLength: 0)
-                
-                if let date = item.date {
-                    HStack(spacing: 4) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 12))
-                        Text(date)
-                            .font(.system(size: 14))
-                    }
-                    .foregroundStyle(.white.opacity(0.6))
-                    .lineLimit(1)
+                        .foregroundStyle(.white.opacity(0.8))
                 }
             }
-            .padding(.vertical, 4)
             
-            Spacer(minLength: 0)
+            Divider().overlay(Color.white.opacity(0.1))
+            
+            HStack {
+                if let bookedFor = booking.booked_for, bookedFor.username != currentUsername {
+                    Text("Booked for: \(bookedFor.name)")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.6))
+                } else if let user = booking.user, user.username != currentUsername {
+                    Text("Booked by: \(user.name)")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.6))
+                } else {
+                    Text("Booked for yourself")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                
+                Spacer()
+                
+                Text("Qty: \(booking.quantity)")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
         }
-        .padding(12)
+        .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.white.opacity(0.04))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(
                     LinearGradient(
                         colors: [Color.white.opacity(0.08), Color.white.opacity(0.03)],
